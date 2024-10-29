@@ -1,0 +1,27 @@
+extends Node2D
+
+var speed = 500
+var velocity
+var target_position
+
+@onready var timer = $Timer
+#This handles the time the bullet will take to disappear 
+func _ready():
+	timer.start(0.5)
+	velocity = Vector2.ZERO
+
+func _on_timer_timeout():
+	queue_free()
+
+
+func init(target_pos):
+	target_position = target_pos
+
+func _physics_process(delta):
+	look_at_target()
+	position += velocity * delta
+#Makes the bullet look at the player 
+func look_at_target():
+	var direction = (target_position - global_position).normalized()
+	rotation = direction.angle()
+	velocity = direction * speed

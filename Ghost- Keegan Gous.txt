@@ -1,0 +1,92 @@
+extends CharacterBody2D
+
+var speed = 130
+var direction = 1
+var turn_around_distance = 200  # Distance to travel before turning around
+var turn_around_time = 4.5  # Time to wait before turning around
+var distance_traveled = 0.0
+var time_since_last_turn = 0.0
+var player = null
+var detection_area = null
+var chasing = false
+var min_distance_to_player = 200 # Minimum distance to keep from the player
+var shoot_distance = 200  # Distance to start shooting
+var shoot_cooldown = 1.2 # Cooldown between shots
+var can_shoot = true  # Flag to check if the enemy can shoot
+
+@onready var animated_sprite2D : AnimatedSprite2D = get_node("AnimatedSprite2D")
+
+func _ready():
+	detection_area = get_node("Area2D")
+	animated_sprite2D.play("Move")  # Play the "Move" animation
+	animated_sprite2D.speed_scale = 1.0  # Default speed scale
+
+func _physics_process(delta):
+	if chasing:
+		var distance_to_player = (player.position - position).length()
+		if distance_to_player <= shoot_distance:
+			velocity = Vector2(0, 0)  # Stand still and shoot
+			if animated_sprite2D.animation != "Attack":
+				animated_sprite2D.play("Attack")  # Play the "Attack" animation
+				animated_sprite2D.speed_scale = 0.5  # Slow down the attack animation
+			if can_shoot:
+				shoot_bullet()
+		else:
+			var target_direction = (player.position - position).normalized()
+			velocity = target_direction * speed
+			flip_sprite(target_direction)  # Flip the sprite based on direction
+			if animated_sprite2D.animation != "Move":
+				animated_sprite2D.play("Move")  # Play the "Move" animation
+				animated_sprite2D.speed_scale = 1.0  # Reset speed scale to default
+	else:
+		velocity = Vector2(speed * direction, 0)
+		flip_sprite(Vector2(direction, 0))  # Flip the sprite based on direction
+		if animated_sprite2D.animation != "Move":
+			animated_sprite2D.play("Move")  # Play the "Move" animation
+			animated_sprite2D.speed_scale = 1.0  # Reset speed scale to default
+	
+	move_and_slide()
+	
+	distance_traveled += abs(velocity.x * delta)
+	time_since_last_turn += delta
+	
+	if distance_traveled >= turn_around_distance or time_since_last_turn >= turn_around_time:
+		direction *= -1
+		distance_traveled = 0.0
+		time_since_last_turn = 0.0
+
+func flip_sprite(direction: Vector2):
+	if direction.x < 0:
+		animated_sprite2D.flip_h = true
+	else:
+		animated_sprite2D.flip_h = false
+
+func shoot_bullet():
+	can_shoot = false
+	var bullet_scene = preload("res://World scenes/ghost_bullet.tscn")
+	var bullet = bullet_scene.instantiate()
+	bullet.position = position
+	bullet.init(player.position)  # Pass the player's current position to the bullet
+	get_tree().get_root().add_child(bullet)
+	await get_tree().create_timer(shoot_cooldown).timeout
+	can_shoot = true
+
+func _on_body_exited(body):
+	if body == player:
+		$DetectionArea.monitoring = true
+		$DetectionArea.monitorable = true
+		chasing = false
+		direction = 1  # Reset direction to default value
+		velocity = Vector2(speed * direction, 0)  # Reset velocity to default value
+		if animated_sprite2D.animation != "Move":
+			animated_sprite2D.play("Move")  # Play the "Move" animation again
+			animated_sprite2D.speed_scale = 1.15  # Reset speed scale to default
+
+func _on_area_2d_body_entered(body):
+	if body.name == "Player":
+		player = body
+		chasing = true
+
+func _on_area_2d_body_exited(body):
+	if body.name == "Player":
+		chasing = false
