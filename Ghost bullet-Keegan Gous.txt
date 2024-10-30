@@ -4,24 +4,36 @@ var speed = 500
 var velocity
 var target_position
 
-@onready var timer = $Timer
-#This handles the time the bullet will take to disappear 
+@onready var timer = $Timer  # Timer to control bullet lifespan
+@onready var area = $Area2D  # Reference to the existing Area2D node
+
+# Called when the bullet is ready
 func _ready():
 	timer.start(0.5)
 	velocity = Vector2.ZERO
 
-func _on_timer_timeout():
-	queue_free()
-
-
+# Set the target position when the bullet is spawned
 func init(target_pos):
 	target_position = target_pos
 
+# Move the bullet towards the target each frame
 func _physics_process(delta):
 	look_at_target()
 	position += velocity * delta
-#Makes the bullet look at the player 
+
+# Makes the bullet look at the target (usually the player)
 func look_at_target():
 	var direction = (target_position - global_position).normalized()
 	rotation = direction.angle()
 	velocity = direction * speed
+
+# Triggered when the timer runs out
+func _on_timer_timeout():
+	queue_free()  # Remove bullet from the scene
+
+# Handles collision detection
+func _on_area_2d_body_entered(body: Node2D) -> void:
+	# Check if the collided body is the player
+	if body.is_in_group("players"):
+		body.reduce_health(100)  # Inflict 20 damage to the player (adjustable)
+		queue_free()  # Remove bullet after hitting the player
