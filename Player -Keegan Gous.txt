@@ -1,27 +1,85 @@
-extends Node2D
+extends CharacterBody2D
 
-var speed_x = 1000
-var speed_y = 0
+# Constants for player movement, jump settings, and health
+const Speed = 400
+const jump_velocity = -600.0
+var gravity = 980  # Gravity force applied to the player
+var max_health := 100
+var current_health := max_health
 
-@onready var timer = $Timer
-#Handles the time when the bullet will disappear 
+@onready var animated_sprite_2d = $AnimatedSprite2D  # Reference to the animated sprite
+
 func _ready():
-	timer.start(0.5)
-
-func _on_timer_timeout():
-	queue_free()
-#This handles the bullet direction and speed 
-func set_direction(x_dir, y_dir):
-	speed_x = 1000 * x_dir
-	speed_y = 0 * y_dir
+	add_to_group("players")  # Add player to the "players" group for identification
 
 func _physics_process(delta):
-	position.x += speed_x * delta
-	position.y += speed_y * delta
+	handle_movement_and_actions(delta)  # Handle player movement and actions
 
-func _on_area_2d_body_entered(body):
-	# Check if the entered body is an enemy
-	if body.is_in_group("enemies"):
-		# Remove the bullet and the enemya
-		queue_free()
-		body.queue_free()
+func handle_movement_and_actions(delta):
+	# Adds gravity to the player if not on the floor
+	if not is_on_floor():
+		velocity.y += gravity * delta
+		animated_sprite_2d.play("Jump")  # Play jump animation
+
+	# Handle jump action
+	if Input.is_action_just_pressed("jump ") and is_on_floor():
+		velocity.y = jump_velocity  # Set upward velocity for jump
+
+	# Get input for movement direction
+	var direction = Input.get_axis("backward ", "forward")
+
+	# Flip sprite based on movement direction
+	if direction < 0:
+		animated_sprite_2d.flip_h = true  # Flip sprite for left movement
+	elif direction > 0:
+		animated_sprite_2d.flip_h = false  # Flip sprite for right movement
+
+	# Play appropriate animation based on movement state
+	if is_on_floor():
+		if direction == 0:
+			animated_sprite_2d.play("Idle")  # Play idle animation
+		else:
+			animated_sprite_2d.play("Walk")  # Play walking animation
+
+	# Set horizontal velocity based on input direction
+	if direction:
+		velocity.x = direction * Speed  # Move left or right
+	else:
+		velocity.x = move_toward(velocity.x, 0, Speed)  # Slow down to a stop
+
+	# Check for shoot input
+	if Input.is_action_just_pressed("shoot "):
+		shoot()  # Call shoot function if shoot action is pressed
+
+	move_and_slide()  # Move the player with sliding physics
+
+# Function to handle player shooting
+func shoot():
+	# Instantiate a bullet from the bullet scene
+	var bullet = preload("res://World scenes/Player_Bullet.tscn").instantiate()
+	var offset = 75  # Offset for bullet position
+
+	# Position bullet based on the player's facing direction
+	if animated_sprite_2d.flip_h:
+		bullet.position = global_position - Vector2(offset, -5.5)  # Left side
+		bullet.get_node("Bullet").flip_h = true  # Flip bullet sprite
+		bullet.set_direction(-1, -1)  # Set bullet direction
+	else:
+		bullet.position = global_position + Vector2(offset, 5.5)  # Right side
+		bullet.get_node("Bullet").flip_h = false  # Normal bullet sprite
+		bullet.set_direction(1, -1)  # Set bullet direction
+
+	get_tree().root.add_child(bullet)  # Add bullet to the scene tree
+
+# Function to handle reducing health
+func reduce_health(amount: int) -> void:
+	while current_health > 0:
+		current_health -= amount
+		if current_health <= 0:
+			current_health = 0
+			die()
+
+# Function to handle player death
+func die() -> void:
+	print("Player has died")
+	get_tree().change_scene_to_file("res://World scenes/Death screen.tscn")
