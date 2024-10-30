@@ -17,7 +17,6 @@ var can_shoot = true  # Flag to check if the enemy can shoot
 @onready var animated_sprite2D : AnimatedSprite2D = get_node("AnimatedSprite2D")
 
 func _ready():
-	detection_area = get_node("Area2D")
 	animated_sprite2D.play("Move")  # Play the "Move" animation
 	animated_sprite2D.speed_scale = 1.0  # Default speed scale
 
